@@ -25,7 +25,7 @@ class Embedding(nn.Module):
         self.metric = identity
 
     def forward(self, x, v=None):
-        y = self.net_(x)
+        y = self.net_(x, v)
 
         if hasattr(self, 'bump'):
             y *= self.bump(x.contiguous()).unsqueeze(-1)

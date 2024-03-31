@@ -5,7 +5,10 @@ from typing import Optional
 import torch
 import torch.nn as nn
 from torch.nn.functional import normalize
-
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.home()/'Programs'/'gmm-torch'))
+import gmm
 from ..covariances.spherical import Spherical
 from ..utils.torch_helper import TorchHelper
 
@@ -156,34 +159,44 @@ class SecondGeometryRobot(SecondGeometry):
         self.robot = robot
         self.obstacle = obstacle
 
+    @staticmethod
+    def kernel(x, sigma = 0.2, center = torch.tensor([0.2, -0.1])):
+        y = torch.empty((x.size(0), 1))
+        d = 2 * sigma**2
+        n = - torch.linalg.norm(x-center, dim=1, ord=2)**2
+        for i in range(y.size(0)):
+            y[i] = torch.exp(n[i]/d)
+        y[y >= 100] = 100
+        return torch.concat((x, y), axis=1)
+    
+    def obstacle_characterization(self, grid, probability_density):
+        distribution_model = gmm.GaussianMixture(1, grid.size(1))
+        high_densitiy_zones = grid[torch.where(probability_density > probability_density.mean())[0]]
+        distribution_model.fit(high_densitiy_zones)
+        y = torch.empty((grid.size(0), 1))
+        y_t = distribution_model.predict(grid)
+        for i in range(y.size(0)):
+            y[i] = y_t[i][0][0]
+        y[y >= 100] = 100
+
+        return torch.concat((grid, y), axis=1)
+
     def forward(self, x):
 
         p = x[:, :int(x.shape[1]/2)]
         v = x[:, int(x.shape[1]/2):]
-        centroids, covariances = [], []
-        for configuration in p.clone().detach():
-            self.robot.send_new_absolute_configuration(configuration.detach())
-            centroids.append(self.robot.link1.gmm_model.mu)
-            covariances.append(self.robot.link1.gmm_model.var)
 
-        gmm_parameters = torch.concat((
-            torch.stack(centroids).squeeze(2),
-            torch.stack(covariances).squeeze(1, 2)
-        ), dim=1)
-        obstacles = self.obstacle * torch.ones_like(gmm_parameters[:, 0])
-        obstacles.requires_grad_()
-
-
-        y = self.embedding(obstacles, gmm_parameters)
+        # y = self.embedding(p, self.robot, self.obstacle)
+        y = self.obstacle_characterization(p, self.probability_density)
         
         # jacobian
-        j = self.embedding.jacobian(obstacles, y)
+        j = self.embedding.jacobian(p, y)
 
         # metric
         m = self.embedding.pullmetric(y, j)
 
         # christoffel
-        g = self.embedding.christoffel(obstacles, m)
+        g = self.embedding.christoffel(p, m)
 
         # potential energy
         f = self.stiffness(p - self.attractor)
@@ -237,14 +250,14 @@ class SecondGeometryRobot(SecondGeometry):
         obstacles.requires_grad_()
 
 
-        y = self.embedding(obstacles, gmm_parameters)
+        y = self.kernel(p)
         # y = self.embedding(pos, vel) if self.velocity_embedding else self.embedding(pos)
         # jacobian
-        j = self.embedding.jacobian(obstacles, y)
+        j = self.embedding.jacobian(p, y)
         # metric
         m = self.embedding.pullmetric(y, j)
         # christoffel
-        g = self.embedding.christoffel(obstacles, m)
+        g = self.embedding.christoffel(p, m)
         # desired state
         # vd = vel - self.field(pos) if hasattr(self, 'field') else vel
 

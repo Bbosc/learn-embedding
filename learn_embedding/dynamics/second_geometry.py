@@ -72,7 +72,8 @@ class SecondGeometry(nn.Module):
                 d = self.embedding.local_deformation(p, v)
                 harmonic_weight = TorchHelper.generalized_sigmoid(d, b=self.harmonic_growth, a=1.0, k=0.0, m=self.harmonic_start)
         else:
-            harmonic_weight = 1.0
+            # harmonic_weight = 1.0
+            harmonic_weight = 1.0 / m.det()
 
         f *= harmonic_weight
         f_d *= harmonic_weight

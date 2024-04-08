@@ -34,7 +34,6 @@ class Embedding(nn.Module):
             y += self.local_deformation(x, v)
 
         y[y >= 100] = 100
-        y[y< y.mean() + 2*y.std()] = 0.
 
         return torch.concat((x, y), axis=1)
 

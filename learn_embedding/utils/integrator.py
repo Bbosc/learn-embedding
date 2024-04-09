@@ -26,9 +26,6 @@ class Integrator():
 
         for i in range(steps-1):
             x[i+1, :, dim:] = x[i, :, dim:] + dynamics(x[i, :, :])*dt
-            if i > 1:
-                if torch.gradient(torch.diff(x[:i+1, :, 2:], dim=2), dim=0)[0][-1] > 0.02: # TODO: find a metric, perhaps based on the space deformation itself ?
-                    x[i+1, :, dim:] = x[i, :, dim:] * (1 + torch.gradient(torch.diff(x[:i+1, :, 2:], dim=2), dim=0)[0][-1])
             x[i+1, :, :dim] = x[i, :, :dim] + x[i+1, :, dim:]*dt
 
         return x

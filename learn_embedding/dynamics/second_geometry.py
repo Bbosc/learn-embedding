@@ -67,16 +67,18 @@ class SecondGeometry(nn.Module):
             f_d += self.exp_dissipation_weight*self.exp_dissipation(p, self.attractor.unsqueeze(0))*v
 
         harmonic_weight, geodesic_weight = self.compute_dynamic_weights(p)
-        f *= harmonic_weight
-        f_d *= harmonic_weight
+        # harmonic_weight, geodesic_weight = 1. , 1.
+        with torch.no_grad():
+            f *= harmonic_weight
+            f_d *= harmonic_weight
 
-        return (torch.bmm(m.inverse(), -f.unsqueeze(2)) - geodesic_weight*torch.bmm(torch.einsum('bqij,bi->bqj', g, v), v.unsqueeze(2))).squeeze(2) - f_d
+            return (torch.bmm(m.inverse(), -f.unsqueeze(2)) - geodesic_weight*torch.bmm(torch.einsum('bqij,bi->bqj', g, v), v.unsqueeze(2))).squeeze(2) - f_d
     
     def compute_dynamic_weights(self, current_position: torch.Tensor) -> tuple:
-        q = current_position + torch.linspace(0, 0.1, 10).unsqueeze(0).repeat((2, 1)).T * (self._attractor - current_position)
+        q = current_position + torch.linspace(0, 0.1, 10).unsqueeze(0).repeat((7, 1)).T * (self._attractor - current_position)
         q.requires_grad_()
         e = self.embedding(q)
-        grad = torch.autograd.grad(e[:, 2], q, grad_outputs=torch.ones_like(e[:, 2]))[0]
+        grad = torch.autograd.grad(e[:, 7], q, grad_outputs=torch.ones_like(e[:, 7]))[0]
         harmonic_weight = TorchHelper.generalized_sigmoid(torch.max(grad.sum(1)), b=50, a=1.0, k=0.0, m=10)
         geodesic_weight = TorchHelper.generalized_sigmoid(torch.max(grad.sum(1)), b=50, a=0.0, k=1.0, m=25)
         return harmonic_weight, geodesic_weight

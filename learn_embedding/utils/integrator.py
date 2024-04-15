@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import torch
+from tqdm import tqdm
 
 
 class Integrator():
@@ -24,7 +25,7 @@ class Integrator():
         x = torch.zeros(steps, x0.shape[0], x0.shape[1]).to(x0.device)
         x[0, :, :] = x0
 
-        for i in range(steps-1):
+        for i in tqdm(range(steps-1)):
             x[i+1, :, dim:] = x[i, :, dim:] + dynamics(x[i, :, :])*dt
             x[i+1, :, :dim] = x[i, :, :dim] + x[i+1, :, dim:]*dt
 

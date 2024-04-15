@@ -75,10 +75,11 @@ class SecondGeometry(nn.Module):
             return (torch.bmm(m.inverse(), -f.unsqueeze(2)) - geodesic_weight*torch.bmm(torch.einsum('bqij,bi->bqj', g, v), v.unsqueeze(2))).squeeze(2) - f_d
     
     def compute_dynamic_weights(self, current_position: torch.Tensor) -> tuple:
-        q = current_position + torch.linspace(0, 0.1, 10).unsqueeze(0).repeat((7, 1)).T * (self._attractor - current_position)
+        dim = current_position.shape[1]
+        q = current_position + torch.linspace(0, 0.1, 10).unsqueeze(0).repeat((dim, 1)).T.to(current_position.device) * (self._attractor - current_position)
         q.requires_grad_()
         e = self.embedding(q)
-        grad = torch.autograd.grad(e[:, 7], q, grad_outputs=torch.ones_like(e[:, 7]))[0]
+        grad = torch.autograd.grad(e[:, dim], q, grad_outputs=torch.ones_like(e[:, dim]))[0]
         harmonic_weight = TorchHelper.generalized_sigmoid(torch.max(grad.sum(1)), b=50, a=1.0, k=0.0, m=10)
         geodesic_weight = TorchHelper.generalized_sigmoid(torch.max(grad.sum(1)), b=50, a=0.0, k=1.0, m=25)
         return harmonic_weight, geodesic_weight
